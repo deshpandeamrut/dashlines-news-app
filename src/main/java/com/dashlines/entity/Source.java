@@ -1,4 +1,4 @@
-package com.eurofins.amrut.springbootplay.entity;
+package com.dashlines.entity;
 
 import java.util.Map;
 

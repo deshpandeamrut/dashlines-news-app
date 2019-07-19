@@ -1,4 +1,4 @@
-package com.eurofins.amrut.springbootplay.service;
+package com.dashlines.service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,10 +15,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 
-import com.eurofins.amrut.springbootplay.entity.Article;
-import com.eurofins.amrut.springbootplay.entity.Response;
-import com.eurofins.amrut.springbootplay.entity.Source;
-import com.eurofins.amrut.springbootplay.entity.SourceResponse;
+import com.dashlines.entity.Article;
+import com.dashlines.entity.Response;
+import com.dashlines.entity.Source;
+import com.dashlines.entity.SourceResponse;
 
 @Component
 public class NewsServiceImpl {

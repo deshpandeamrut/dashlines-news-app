@@ -1,4 +1,4 @@
-package com.eurofins.amrut.springbootplay;
+package com.dashlines.app;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

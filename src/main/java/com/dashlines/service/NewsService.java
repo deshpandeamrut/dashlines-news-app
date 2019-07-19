@@ -1,4 +1,4 @@
-package com.eurofins.amrut.springbootplay.service;
+package com.dashlines.service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,9 +15,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
-import com.eurofins.amrut.springbootplay.entity.Article;
-import com.eurofins.amrut.springbootplay.entity.Response;
-import com.eurofins.amrut.springbootplay.entity.Source;
+import com.dashlines.entity.Article;
+import com.dashlines.entity.Response;
+import com.dashlines.entity.Source;
 
 @RestController
 public class NewsService {

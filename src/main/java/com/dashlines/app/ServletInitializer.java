@@ -1,4 +1,4 @@
-package com.eurofins.amrut.springbootplay;
+package com.dashlines.app;
 
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
