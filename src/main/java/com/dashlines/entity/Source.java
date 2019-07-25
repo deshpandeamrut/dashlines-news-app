@@ -1,12 +1,22 @@
 package com.dashlines.entity;
 
-import java.util.Map;
+import java.io.Serializable;
+
+import org.springframework.data.redis.core.RedisHash;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class Source {
+@RedisHash("Source")
+public class Source implements Serializable{
 
-	@JsonProperty("id")
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	private String id;
+	
+	@JsonProperty("sourceId")
 	private String sourceId;
 	
 	@JsonProperty("name")
@@ -81,6 +91,14 @@ public class Source {
 
 	public void setCountry(String country) {
 		this.country = country;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
 	}
 	
 	

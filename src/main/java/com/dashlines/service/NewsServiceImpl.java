@@ -9,24 +9,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 
+import com.dashlines.cache.ArticleCacheManager;
+import com.dashlines.cache.SourcesCacheManager;
 import com.dashlines.entity.Article;
 import com.dashlines.entity.Response;
 import com.dashlines.entity.Source;
 import com.dashlines.entity.SourceResponse;
+import com.dashlines.util.DashlinesConstants;
 
 @Component
 public class NewsServiceImpl {
-
-	static List<Article> articleList = null;
-	static List<Article> techArticleList = null;
-	static Map<String, List<Article>> cache = new HashMap<>();
-	static long lastRefreshTime = 0;
 
 	@Value("${news.api.key}")
 	private String newsApiKey;
@@ -55,52 +52,48 @@ public class NewsServiceImpl {
 	@Value("${news.technology.categories}")
 	private String technologySources;
 
-	private static List<Source> newsSourceList = new ArrayList<>();
+	private ArticleCacheManager articleCacheManager;
+
+	private SourcesCacheManager sourcesCacheManager;
+
+	@Autowired
+	public NewsServiceImpl(ArticleCacheManager redisCacheManager,SourcesCacheManager sourcesCacheManager) {
+		this.articleCacheManager = redisCacheManager;
+		this.sourcesCacheManager = sourcesCacheManager;
+	}
 
 	public List<Source> getNewsSources() {
 		final String uri = "https://newsapi.org/v2/sources?language=en&apiKey=" + newsApiKey;
-		for (String src : technologySourceList) {
-			System.out.println(src);
+		List<Source> sourceList = sourcesCacheManager.getList(DashlinesConstants.SOURCES_KEY);
+		if (sourceList == null || sourceList.size() == 0) {
+			sourceList = doRestCallForSources(uri);
+			sourcesCacheManager.cacheSourceList(DashlinesConstants.SOURCES_KEY, sourceList);
 		}
-		if (newsSourceList.isEmpty()) {
-			newsSourceList = doRestCallForSources(uri);
-		}
-		return newsSourceList;
+		return sourceList;
 	}
 
 	private List<Source> doRestCallForSources(String uri) {
-		System.out.println("Doing rest call... for " + uri);
+		System.out.println("Doing rest call for sources... " + uri);
 		RestTemplate restTemplate = new RestTemplate();
 		SourceResponse result = restTemplate.getForObject(uri, SourceResponse.class);
 		return result.getSources();
-
 	}
 
-	private List<Article> doRestCall(String uri) {
-		System.out.println("Doing rest call... for " + uri);
-		RestTemplate restTemplate = new RestTemplate();
-		Response result = restTemplate.getForObject(uri, Response.class);
-		return result.getArticles();
-
+	private List<Article> doRestCall(String uri, String key) {
+		List<Article> articleList = articleCacheManager.getList(key);
+		if (articleList == null || articleList.size() == 0) {
+			System.out.println("Doing rest call... for " + uri);
+			RestTemplate restTemplate = new RestTemplate();
+			Response result = restTemplate.getForObject(uri, Response.class);
+			articleList = result.getArticles();
+			articleCacheManager.cacheArticleList(key, articleList);
+		}
+		return articleList;
 	}
 
 	public List<Article> getSmartNews(String url) {
-
-		Date now = new Date();
-		long nowMs = now.getTime();
-		List<Article> latestArticles;
-		if (cache.get("smartNews") == null || (nowMs - lastRefreshTime) > refreshInterval) {
-			latestArticles = doRestCall(url);
-			List<String> sourceList = new ArrayList<>();
-			sourceList.addAll(generalSourceList);
-			sourceList.addAll(technologySourceList);
-			sourceList.addAll(sportsSourceList);
-			assignWeight(latestArticles, sourceList);
-			sortArticlesByWeight(latestArticles);
-			cache.put("smartNews", latestArticles);
-			lastRefreshTime = nowMs;
-		}
-		return cache.get("smartNews");
+		System.out.println("url:" + url);
+		return doRestCall(url, DashlinesConstants.SMART_NEWS_KEY);
 	}
 
 	private void sortArticlesByWeight(List<Article> latestArticles) {
@@ -142,8 +135,6 @@ public class NewsServiceImpl {
 
 	public List<Article> getLatestNews() {
 		final String uri = "https://newsapi.org/v2/top-headlines?language=en&apiKey=" + newsApiKey;
-		Date now = new Date();
-		long nowMs = now.getTime();
 		return getSmartNews(uri);
 	}
 
@@ -153,24 +144,17 @@ public class NewsServiceImpl {
 		if (sourceName == null) {
 			return null;
 		}
-		Date now = new Date();
-		long nowMs = now.getTime();
-		if (cache.get(sourceName) == null || (nowMs - lastRefreshTime) > refreshInterval) {
-			articleList = doRestCall(uri);
-			cache.put(sourceName, articleList);
-			lastRefreshTime = nowMs;
-		}
-		return cache.get(sourceName);
+		return doRestCall(uri, "SOURCE_" + sourceName);
 	}
 
 	public List<Article> getLatestNewsForSearchText(String searchText) {
 		final String uri = "https://newsapi.org/v2/top-headlines?language=en&apiKey=" + newsApiKey + "&q=" + searchText;
-		return doRestCall(uri);
+		return doRestCall(uri, "LATEST_NEWS_SEARCH_" + searchText);
 	}
 
 	public List<Article> getAllNewsForSearchText(String searchText) {
 		final String uri = "https://newsapi.org/v2/everything?language=en&apiKey=" + newsApiKey + "&q=" + searchText;
-		return doRestCall(uri);
+		return doRestCall(uri, "ALL_NEWS_SEARCH_" + searchText);
 	}
 
 	public List<Article> getNewsForCategory(String category, boolean extendedSearch) {
@@ -181,38 +165,30 @@ public class NewsServiceImpl {
 		}
 		final String uri = "https://newsapi.org/v2/top-headlines?language=en&country=" + country + "&apiKey="
 				+ newsApiKey + "&category=" + category;
-		Date now = new Date();
-		long nowMs = now.getTime();
-		if (cache.get(category) == null || (lastRefreshTime - nowMs) > refreshInterval) {
-			List<Article> articles = doRestCall(uri);
-			if (articles.isEmpty()) {
-				articles = getLatestNewsForSearchText(category);
-			}
-			if (extendedSearch && articles.isEmpty()) {
-				articles = getAllNewsForSearchText(category);
-			}
-			List<String> sourceList;
-			switch (category) {
-			case "technlogy":
-				sourceList = technologySourceList;
-				break;
-			case "sports":
-				sourceList = sportsSourceList;
-				break;
-			default:
-				sourceList = generalSourceList;
-				break;
-			}
-			assignWeight(articles, sourceList);
-			sortArticlesByWeight(articles);
-			cache.put(category, articles);
-			lastRefreshTime = nowMs;
+		List<Article> articles = doRestCall(uri, category);
+		if (articles.isEmpty()) {
+			articles = getLatestNewsForSearchText(category);
 		}
-		return cache.get(category);
+		if (extendedSearch && articles.isEmpty()) {
+			articles = getAllNewsForSearchText(category);
+		}
+		List<String> sourceList;
+		switch (category) {
+		case "technlogy":
+			sourceList = technologySourceList;
+			break;
+		case "sports":
+			sourceList = sportsSourceList;
+			break;
+		default:
+			sourceList = generalSourceList;
+			break;
+		}
+		assignWeight(articles, sourceList);
+		sortArticlesByWeight(articles);
+		return articles;
 	}
 
-	@RequestMapping(value = "/news/myFeed")
-	@ResponseBody
 	public Map<String, List<Article>> getLatestFeed() {
 		Map<String, List<Article>> myFeedMap = new HashMap<String, List<Article>>();
 		final String uri = "https://newsapi.org/v2/top-headlines?language=en&country=us&apiKey=d7ae5b652f4d481d8cb7ded898d9d43f";
@@ -221,10 +197,9 @@ public class NewsServiceImpl {
 			myFeedMap.put(category.split(":")[1], temp);
 		}
 		return myFeedMap;
-
 	}
 
-	public Map<String,List<Article>> getMySourcesNews() {
+	public Map<String, List<Article>> getMySourcesNews() {
 		Map<String, List<Article>> myFeedMap = new HashMap<String, List<Article>>();
 		List<String> sourceList = new ArrayList<>();
 		sourceList.addAll(generalSourceList);
@@ -232,7 +207,7 @@ public class NewsServiceImpl {
 		sourceList.addAll(sportsSourceList);
 		for (String source : sourceList) {
 			List<Article> temp = getNewsFromSource(source);
-			if(!temp.isEmpty()) {
+			if (!temp.isEmpty()) {
 				myFeedMap.put(source, temp);
 			}
 		}

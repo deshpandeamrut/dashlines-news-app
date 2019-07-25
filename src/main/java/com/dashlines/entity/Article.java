@@ -1,10 +1,17 @@
 package com.dashlines.entity;
 
+import java.io.Serializable;
 import java.util.Map;
+
+import org.springframework.data.redis.core.RedisHash;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class Article {
+@RedisHash("Article")
+public class Article implements Serializable {
+	
+	private String id;
+	 
 	private String sourceName;
 	private String sourceId;
 
@@ -39,6 +46,14 @@ public class Article {
 	
 	
 	
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
 	public Integer getWeight() {
 		return weight;
 	}
